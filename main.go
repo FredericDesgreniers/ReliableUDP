@@ -39,6 +39,4 @@ func startServer(){
 	receivedPacket := routerConnection.ReadPacket()
 
 	fmt.Printf("Received from %v:%v a packet with data \"%s\"", receivedPacket.Address, receivedPacket.Port, string(receivedPacket.Data))
-
-
 }
