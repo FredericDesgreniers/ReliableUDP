@@ -10,6 +10,7 @@ const (
 	ACK = 1
 	NACK = 2
 	SYN = 3
+	END = 4
 	)
 
 type Packet struct{

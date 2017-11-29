@@ -1,9 +1,6 @@
 package main
 
 import (
-	"log"
-	"./router"
-	"./reliable"
 	"./client"
 	"fmt"
 	"net"
@@ -12,21 +9,15 @@ import (
 	"flag"
 	"./http"
 	"net/url"
-	"os"
+
+	"time"
+	"math/rand"
 )
 
-func getPathDetails() (*url.URL, error){
-	s := "http://127.0.0.1:8080/"
-	if len(os.Args) >= 2 {
-		s = os.Args[1];
-	}
-
-	return url.Parse(s)
-}
-
 func main() {
-	go startServer()
-	//dataPtr := flag.String("data", "default data", "data to send if using post")
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	dataPtr := flag.String("data", "", "data to send if using post")
 	//headerPtr := flag.String("header", "", "headers to send")
 
 	portReceivePtr := flag.Int("rPort", 8081, "Port to receive on")
@@ -34,9 +25,12 @@ func main() {
 	isGetPtr := flag.Bool("get", true, "do get")
 	isPostPtr := flag.Bool("post", false, "do post")
 
+	pathPtr := flag.String("p", "http://127.0.0.1:8080/", "request path")
+
 	flag.Parse()
 
-	u, _ := getPathDetails();
+	u, _ := url.Parse(*pathPtr)
+
 	fmt.Println(u)
 	host, portStr, _ := net.SplitHostPort(u.Host);
 
@@ -58,69 +52,23 @@ func main() {
 	portReceive := *portReceivePtr
 	isGet := *isGetPtr
 	isPost := *isPostPtr
+	data := *dataPtr
+
+	fmt.Println(isPost)
 
 	requestType := http.GET
 
-	if(isGet){
+	if isGet {
 		requestType = http.GET
 	}
 
-	if(isPost){
+	if isPost {
 		requestType = http.POST
 	}
 
 
-		client.Run(hostBytes, uint16(port), portReceive, requestType, u.Path)
+		client.Run(hostBytes, uint16(port), portReceive, requestType, u.Path, data)
 
 
 }
 
-func startServer(){
-	routerConnection, err := router.ConnectToRouter("127.0.0.1", 3000,[]byte{127, 0, 0, 1}, 8081, 8080)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer routerConnection.Close()
-
-		forwarder := reliable.CreateWindowForwarder(routerConnection)
-
-		for true{
-			windowConnection := forwarder.ReceiveAndForwardPacket()
-			if windowConnection == nil{
-				continue
-			}
-			if windowConnection.DoneSending {
-				if len(windowConnection.SenderWindow.Buffer) > 0{
-					if windowConnection.SenderWindow.Buffer[0].Packet == nil {
-						windowConnection.Reset()
-						continue
-					}
-				}else{
-					windowConnection.Reset()
-					continue
-				}
-			}
-
-			if len(windowConnection.ReceiverWindow.InputBuffer) > 0 {
-				data := windowConnection.GetWaitAndFlushInputBuffer()
-
-				lastChar := len(data)-1
-				for i := lastChar; i >= 0; i--{
-					if(data[i] != 0){
-						lastChar = i;
-						break;
-					}
-				}
-
-				text := string(data[:lastChar+1])
-
-				windowConnection.SendPacket([]byte("Got the data on server: "+string(text)))
-				windowConnection.DoneSending = true;
-			}
-		}
-
-		fmt.Println("SERVER CLOSED")
-
-
-}

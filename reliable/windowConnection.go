@@ -14,7 +14,11 @@ type TwoWayWindowConnection struct{
 	ReceiverWindow *ReceiverWindow
 	Router *router.RouterConnection
 	DoneSending bool
-}
+
+	AddressStr string
+	}
+
+
 
 func (this *TwoWayWindowConnection) waitForSyncAck(sequence uint32){
 	syncPacket := this.Router.CreatePacket(router.SYN, sequence, make([]byte, 0))
@@ -38,17 +42,14 @@ func (this *TwoWayWindowConnection) Connect(){
 
 	go this.waitForSyncAck(startSequence)
 
-	fmt.Printf("Client expecting receiving buffer starting at %v\n", startSequence)
-
-
 	for {
 		packet := this.Router.ReadPacket()
-		if packet.Type == router.ACK && packet.SequenceNumber == startSequence {
+		if !this.ReceiverWindow.IsSynched && packet.Type == router.ACK && packet.SequenceNumber == startSequence {
 			this.ReceiverWindow.IsSynched = true
-			fmt.Println("Synched client receiver window")
+			fmt.Printf("Synched client receiver window with sync id %v\n", this.ReceiverWindow.Buffer[0].SequenceNumber)
 		}
 
-		if packet.Type == router.SYN {
+		if packet.Type == router.SYN && !this.SenderWindow.IsSynched{
 			for i, _ := range this.SenderWindow.Buffer{
 				this.SenderWindow.Buffer[i].SequenceNumber = packet.SequenceNumber+uint32(i)
 			}
@@ -123,6 +124,11 @@ func (this *TwoWayWindowConnection) ProcessPacket(packet *router.Packet){
 		this.ReceiverWindow.acceptDataPacket(packet)
 		break;
 	case router.ACK:
+		if(this.endAck > 0){
+			if packet.SequenceNumber == this.endAck {
+				this.endAck = 0;
+			}
+		}
 		//fmt.Printf("%v - Packet arrived %v %v %v\n",this.SenderWindow.Name, packet.Type, packet.SequenceNumber, string(packet.Data))
 		this.SenderWindow.acceptAckPacket(packet)
 		break

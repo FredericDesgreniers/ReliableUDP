@@ -57,10 +57,10 @@ func (windowForwarder *WindowForwarder) getConnectionForAddress(addr string, pac
 		connection = &TwoWayWindowConnection{
  			CreateSenderWindow("Forward sender ", windowSize, windowForwarder.RouterConnection),
 			CreateReceiverWindow("Forward receiver",windowSize, windowForwarder.RouterConnection),
-			windowForwarder.RouterConnection, false}
+			windowForwarder.RouterConnection, false, addr}
 
 		connection.SenderWindow.IsSynched = true;
-		fmt.Println("Synched server sender window")
+
 
 		ackPacket := connection.Router.CreatePacket(router.ACK, packet.SequenceNumber, make([]byte, 0))
 		connection.Router.SendPacket(&ackPacket)
@@ -70,6 +70,8 @@ func (windowForwarder *WindowForwarder) getConnectionForAddress(addr string, pac
 		for i, _ := range connection.SenderWindow.Buffer{
 			connection.SenderWindow.Buffer[i].SequenceNumber = sequenceStart+uint32(i);
 		}
+
+		fmt.Printf("Synched server sender window with sync id %v\n", connection.SenderWindow.Buffer[0].SequenceNumber)
 
 		startSequence := rand.Uint32()%10
 
@@ -86,6 +88,10 @@ func (windowForwarder *WindowForwarder) getConnectionForAddress(addr string, pac
 	}
 
 	return connection
+}
+
+func (this *WindowForwarder) Reset(windowConnection *TwoWayWindowConnection){
+	delete(this.connections, windowConnection.AddressStr)
 }
 
 func (windowForwarder *WindowForwarder) ReceiveAndForwardPacket() *TwoWayWindowConnection{
@@ -112,7 +118,7 @@ func (windowForwarder *WindowForwarder) ReceiveAndForwardPacket() *TwoWayWindowC
 		if receivedPacket.Type == router.DATA {
 			if receivedPacket.SequenceNumber == windowConnection.ReceiverWindow.Buffer[0].SequenceNumber {
 				windowConnection.ReceiverWindow.IsSynched = true
-				fmt.Println("Synched server receiver window")
+				fmt.Printf("Synched server receiver window with sync id %v\n", windowConnection.ReceiverWindow.Buffer[0].SequenceNumber)
 			}
 		}
 	}

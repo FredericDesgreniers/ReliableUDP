@@ -29,7 +29,7 @@ func createRequestLine(method int, path string) string{
 
 
 
-func Run(hostBytes []byte, port uint16, portReceive int, requestType int, path string) {
+func Run(hostBytes []byte, port uint16, portReceive int, requestType int, path string, data string) {
 	routerConnection, err := router.ConnectToRouter("127.0.0.1", 3000, hostBytes, port, portReceive)
 
 	if err != nil {
@@ -42,12 +42,11 @@ func Run(hostBytes []byte, port uint16, portReceive int, requestType int, path s
 	connection := &reliable.TwoWayWindowConnection{
 		reliable.CreateSenderWindow("Client sender", windowSize, routerConnection),
 		reliable.CreateReceiverWindow("Client receiver", windowSize, routerConnection),
-		routerConnection, false}
+		routerConnection, false, "test", 0}
 
 	connection.Connect()
 
-	fmt.Println("Sending " +createRequestLine(requestType, path ))
-	connection.SendPacket([]byte(createRequestLine(requestType, path)))
+	connection.SendPacket([]byte(createRequestLine(requestType, path)+ "\n"+data))
 
 	for true {
 		receivedPacket := routerConnection.ReadPacket()
@@ -58,7 +57,12 @@ func Run(hostBytes []byte, port uint16, portReceive int, requestType int, path s
 			if len(data) > 0 {
 				fmt.Println("Data received on client: " + string(data))
 				routerConnection.Close()
-				return;
+
+				for true{
+					receivedPacket := routerConnection.ReadPacket()
+					connection.ProcessPacket(&receivedPacket)
+
+				}
 			}
 		}
 
